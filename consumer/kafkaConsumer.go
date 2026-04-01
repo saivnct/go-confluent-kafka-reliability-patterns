@@ -25,7 +25,15 @@ type BaseKKConsumer struct {
 
 	mu        sync.Mutex
 	runCancel context.CancelFunc
+	doneCh    chan struct{}
+	runErr    error
 	IsRunning bool
+}
+
+func closedSignalChannel() chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
 }
 
 func NewBaseKKConsumer(name string, cfg KafkaGroupConsumerConfig, retryPolicy KafkaConsumerRetryPolicy, dltPolicy KafkaConsumerDLTPolicy) (*BaseKKConsumer, error) {
@@ -41,9 +49,34 @@ func NewBaseKKConsumer(name string, cfg KafkaGroupConsumerConfig, retryPolicy Ka
 		GroupID:     cfg.GroupID,
 		RetryPolicy: retryPolicy,
 		DLTPolicy:   dltPolicy,
+		doneCh:      closedSignalChannel(),
 	}, nil
 }
 
+// ConsumeDone returns a run-scoped channel that closes when the current consume loop stops.
+//
+// StartConsume creates a new channel for each successful run, so callers should re-read
+// ConsumeDone after each StartConsume call.
+func (b *BaseKKConsumer) ConsumeDone() <-chan struct{} {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.doneCh
+}
+
+// ConsumeErr returns the terminal error from the latest consume run.
+//
+// It is reset to nil on StartConsume, then populated when that run terminates.
+func (b *BaseKKConsumer) ConsumeErr() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return b.runErr
+}
+
+// StartConsume starts the consume loop if it is not already running.
+//
+// Each new run resets ConsumeErr and creates a new ConsumeDone channel.
 func (b *BaseKKConsumer) StartConsume(
 	handler KafkaMessageHandler,
 	preConsumeHook KafkaPreConsumeHook,
@@ -57,17 +90,15 @@ func (b *BaseKKConsumer) StartConsume(
 
 	ctx, cancel := context.WithCancel(context.Background())
 	b.runCancel = cancel
+	b.doneCh = make(chan struct{})
+	b.runErr = nil
 	b.IsRunning = true
 	b.mu.Unlock()
 
 	err := b.consumeMsg(ctx, handler, preConsumeHook, postConsumeHook)
 	if err != nil {
 		cancel()
-
-		b.mu.Lock()
-		b.runCancel = nil
-		b.IsRunning = false
-		b.mu.Unlock()
+		b.completeRun(err)
 
 		return err
 	}
@@ -79,7 +110,6 @@ func (b *BaseKKConsumer) Close() error {
 	b.mu.Lock()
 	runCancel := b.runCancel
 	b.runCancel = nil
-	b.IsRunning = false
 	b.mu.Unlock()
 
 	if runCancel != nil {
@@ -92,6 +122,24 @@ func (b *BaseKKConsumer) Close() error {
 	}
 
 	return nil
+}
+
+func (b *BaseKKConsumer) completeRun(runErr error) {
+	b.mu.Lock()
+	b.runCancel = nil
+	b.IsRunning = false
+	b.runErr = runErr
+	doneCh := b.doneCh
+	b.mu.Unlock()
+
+	if doneCh != nil {
+		select {
+		case <-doneCh:
+			// Channel already closed by another termination path.
+		default:
+			close(doneCh)
+		}
+	}
 }
 
 func (b *BaseKKConsumer) consumeMsg(
@@ -112,6 +160,14 @@ func (b *BaseKKConsumer) consumeMsg(
 	}
 
 	go func(kkConsumer *BaseKKConsumer) {
+		runErr := error(nil)
+		defer func() {
+			if runErr == nil {
+				runErr = ctx.Err()
+			}
+			kkConsumer.completeRun(runErr)
+		}()
+
 		if postConsumeHook != nil {
 			defer func() {
 				postConsumeHook()
@@ -130,6 +186,7 @@ func (b *BaseKKConsumer) consumeMsg(
 
 		for {
 			if err := ctx.Err(); err != nil {
+				runErr = err
 				log.Println("Stop KK Consumer loop", "BaseKKConsumer:", b.Name, "error:", err)
 				return
 			}
@@ -143,6 +200,7 @@ func (b *BaseKKConsumer) consumeMsg(
 			case *kafka.Message:
 				if err := ProcessKafkaMessageWithRetryAndOptions(ctx, kkConsumer.Reader, e, consumerHandler, retryPolicy, dltPolicy); err != nil {
 					if isTerminalConsumerErr(ctx, err) {
+						runErr = err
 						log.Println("Stop KK Consumer loop on terminal process error", "BaseKKConsumer:", b.Name, "error:", err)
 						return
 					}
@@ -150,12 +208,14 @@ func (b *BaseKKConsumer) consumeMsg(
 					log.Println("Failed to process Kafka message", "BaseKKConsumer:", b.Name, "topic:", topicFromKafkaMessage(e), "partition:", e.TopicPartition.Partition, "offset:", e.TopicPartition.Offset, "error:", err)
 
 					if err := sleepWithContext(ctx, retryPolicy.SleepOnFetchErr); err != nil {
+						runErr = err
 						log.Println("Stop KK Consumer while waiting after process error", "BaseKKConsumer:", b.Name, "error:", err)
 						return
 					}
 				}
 			case kafka.Error:
 				if isTerminalConsumerErr(ctx, e) {
+					runErr = e
 					log.Println("Stop KK Consumer loop on terminal process error", "BaseKKConsumer:", b.Name, "error:", e)
 					return
 				}
@@ -163,6 +223,7 @@ func (b *BaseKKConsumer) consumeMsg(
 				log.Println("Kafka consumer error", "BaseKKConsumer:", b.Name, "error:", e)
 
 				if err := sleepWithContext(ctx, retryPolicy.SleepOnFetchErr); err != nil {
+					runErr = err
 					log.Println("Stop KK Consumer while waiting after consumer error", "BaseKKConsumer:", b.Name, "error:", err)
 					return
 				}

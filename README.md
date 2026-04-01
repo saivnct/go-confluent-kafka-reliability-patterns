@@ -114,6 +114,7 @@ func main() {
             BackoffMax:    10 * time.Second,
             BackoffFactor: 2,
         },
+        consumer.KafkaConsumerDLTPolicy{},
     )
     if err != nil {
         panic(err)
@@ -138,6 +139,40 @@ func main() {
     }, nil, nil)
 
     select {}
+}
+```
+
+### 3) React to Consumer Stop Signals
+
+Use `ConsumeDone()` to wait for consume-loop termination and `ConsumeErr()` to decide what action to take.
+If `StartConsume(...)` is called while the consumer is already running, it is a no-op and does not start another consume loop.
+
+```go
+// Continuation of the previous example.
+err = base.StartConsume(func(ctx context.Context, msg *kafka.Message) error {
+  _ = ctx
+  _ = msg
+  return nil
+}, nil, nil)
+if err != nil {
+  panic(err)
+}
+
+go func() {
+  <-base.ConsumeDone()
+
+  if errors.Is(base.ConsumeErr(), context.Canceled) {
+    // Expected when shutdown is requested via Close().
+    return
+  }
+
+  // Trigger alert/restart flow for unexpected termination.
+  panic(base.ConsumeErr())
+}()
+
+// Later, when shutting down:
+if err := base.Close(); err != nil {
+  panic(err)
 }
 ```
 
