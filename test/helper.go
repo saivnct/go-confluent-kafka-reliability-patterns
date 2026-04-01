@@ -8,7 +8,7 @@ import (
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/google/uuid"
-	"github.com/saivnct/kafka-cf-reliablity/util"
+	"github.com/saivnct/go-confluent-kafka-reliability-patterns/util"
 	"github.com/stretchr/testify/assert"
 )
 

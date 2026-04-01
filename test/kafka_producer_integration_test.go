@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/saivnct/kafka-cf-reliablity/conn"
-	"github.com/saivnct/kafka-cf-reliablity/consumer"
-	"github.com/saivnct/kafka-cf-reliablity/producer"
+	"github.com/saivnct/go-confluent-kafka-reliability-patterns/conn"
+	"github.com/saivnct/go-confluent-kafka-reliability-patterns/consumer"
+	"github.com/saivnct/go-confluent-kafka-reliability-patterns/producer"
 	"github.com/stretchr/testify/assert"
 )
 

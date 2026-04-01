@@ -1,8 +1,8 @@
-# go-confluent-kafka-enhanced
+# go-confluent-kafka-reliability-patterns
 
-[![Release](https://img.shields.io/github/v/tag/saivnct/go-confluent-kafka-enhanced?label=release)](https://github.com/saivnct/go-confluent-kafka-enhanced/tags)
+[![Release](https://img.shields.io/github/v/tag/saivnct/go-confluent-kafka-reliability-patterns?label=release)](https://github.com/saivnct/go-confluent-kafka-reliability-patterns/tags)
 [![Go Version](https://img.shields.io/badge/go-1.26.0-00ADD8?logo=go)](https://go.dev/)
-[![Go Reference](https://pkg.go.dev/badge/github.com/saivnct/kafka-cf-reliablity.svg)](https://pkg.go.dev/github.com/saivnct/kafka-cf-reliablity)
+[![Go Reference](https://pkg.go.dev/badge/github.com/saivnct/go-confluent-kafka-reliability-patterns.svg)](https://pkg.go.dev/github.com/saivnct/go-confluent-kafka-reliability-patterns)
 [![License: Unspecified](https://img.shields.io/badge/license-unspecified-lightgrey)](#license)
 
 A production-oriented Go wrapper around Confluent Kafka (`confluent-kafka-go`) focused on **safe producer defaults**, **controlled consumer retries**, and **dead-letter workflows**.
@@ -13,7 +13,7 @@ Built for teams that want to move fast without re-implementing Kafka reliability
 
 Most Kafka clients solve connectivity, not operating model.
 
-`go-confluent-kafka-enhanced` gives you a consistent baseline for:
+`go-confluent-kafka-reliability-patterns` gives you a consistent baseline for:
 - Topic administration with idempotent-friendly behavior
 - Idempotent producer defaults and automatic idempotency header injection
 - Consumer retry orchestration with exponential backoff
@@ -50,7 +50,7 @@ Most Kafka clients solve connectivity, not operating model.
 ## Installation
 
 ```bash
-go get github.com/saivnct/kafka-cf-reliablity
+go get github.com/saivnct/go-confluent-kafka-reliability-patterns
 ```
 
 ## Quick Start
@@ -64,7 +64,7 @@ import (
     "context"
     "log"
 
-    "github.com/saivnct/kafka-cf-reliablity/producer"
+    "github.com/saivnct/go-confluent-kafka-reliability-patterns/producer"
 )
 
 func main() {
@@ -94,9 +94,9 @@ import (
 
     "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 
-    "github.com/saivnct/kafka-cf-reliablity/consumer"
-    kkerror "github.com/saivnct/kafka-cf-reliablity/kkErrors"
-    "github.com/saivnct/kafka-cf-reliablity/producer"
+    "github.com/saivnct/go-confluent-kafka-reliability-patterns/consumer"
+    kkerror "github.com/saivnct/go-confluent-kafka-reliability-patterns/kkErrors"
+    "github.com/saivnct/go-confluent-kafka-reliability-patterns/producer"
 )
 
 func main() {

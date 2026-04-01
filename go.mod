@@ -1,4 +1,4 @@
-module github.com/saivnct/kafka-cf-reliablity
+module github.com/saivnct/go-confluent-kafka-reliability-patterns
 
 go 1.26.0
 

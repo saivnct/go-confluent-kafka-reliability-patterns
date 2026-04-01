@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"github.com/saivnct/kafka-cf-reliablity/util"
+	"github.com/saivnct/go-confluent-kafka-reliability-patterns/util"
 )
 
 type KafkaGroupConsumerConfig struct {

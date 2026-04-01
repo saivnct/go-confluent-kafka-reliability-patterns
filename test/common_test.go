@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/joho/godotenv"
-	"github.com/saivnct/kafka-cf-reliablity/conn"
-	"github.com/saivnct/kafka-cf-reliablity/producer"
-	"github.com/saivnct/kafka-cf-reliablity/util"
+	"github.com/saivnct/go-confluent-kafka-reliability-patterns/conn"
+	"github.com/saivnct/go-confluent-kafka-reliability-patterns/producer"
+	"github.com/saivnct/go-confluent-kafka-reliability-patterns/util"
 	"github.com/testcontainers/testcontainers-go"
 	kafkaTestContainer "github.com/testcontainers/testcontainers-go/modules/kafka"
 	"go.uber.org/zap"

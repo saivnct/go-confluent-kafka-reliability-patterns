@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	kkerror "github.com/saivnct/kafka-cf-reliablity/kkErrors"
+	kkerror "github.com/saivnct/go-confluent-kafka-reliability-patterns/kkErrors"
 )
 
 type KafkaMessageCommitter interface {

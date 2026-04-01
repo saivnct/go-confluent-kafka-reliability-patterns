@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	kkerror "github.com/saivnct/kafka-cf-reliablity/kkErrors"
-	"github.com/saivnct/kafka-cf-reliablity/producer"
+	kkerror "github.com/saivnct/go-confluent-kafka-reliability-patterns/kkErrors"
+	"github.com/saivnct/go-confluent-kafka-reliability-patterns/producer"
 	"github.com/stretchr/testify/assert"
 )
 
