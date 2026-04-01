@@ -65,6 +65,12 @@ func NewKafkaGroupConsumer(cfg KafkaGroupConsumerConfig) (*kafka.Consumer, error
 		"enable.auto.offset.store":        false,
 		"isolation.level":                 cfg.IsolationLevel,
 		"go.application.rebalance.enable": true,
+		// Avoid connecting to IPv6 brokers:
+		// This is needed for the ErrAllBrokersDown show-case below
+		// when using localhost brokers on OSX, since the OSX resolver
+		// will return the IPv6 addresses first.
+		// You typically don't need to specify this configuration property.
+		"broker.address.family": "v4",
 	}
 
 	for key, value := range cfg.AdditionalConfig {
@@ -84,20 +90,4 @@ func NewKafkaGroupConsumer(cfg KafkaGroupConsumerConfig) (*kafka.Consumer, error
 	}
 
 	return c, nil
-}
-
-func NewBaseKKConsumer(name string, cfg KafkaGroupConsumerConfig, retryPolicy KafkaConsumerRetryPolicy) (*BaseKKConsumer, error) {
-	c, err := NewKafkaGroupConsumer(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &BaseKKConsumer{
-		Name:        name,
-		Reader:      c,
-		Topics:      append([]string(nil), cfg.Topics...),
-		GroupID:     cfg.GroupID,
-		RetryPolicy: retryPolicy,
-		DLTPolicy:   KafkaConsumerDLTPolicy{},
-	}, nil
 }

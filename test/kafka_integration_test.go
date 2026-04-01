@@ -143,7 +143,8 @@ func Test_BaseKKConsumer_StartConsume_WithHooks(t *testing.T) {
 		BackoffBase:   5 * time.Millisecond,
 		BackoffMax:    5 * time.Millisecond,
 		BackoffFactor: 1,
-	})
+	}, consumer.KafkaConsumerDLTPolicy{})
+
 	assert.NoError(t, err)
 	defer baseConsumer.Close()
 
@@ -184,4 +185,192 @@ func Test_BaseKKConsumer_StartConsume_WithHooks(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	assert.Equal(t, int32(1), pre)
 	assert.Equal(t, int32(1), post)
+}
+
+func Test_BaseKKConsumer_MultipleConsumers_SameTopic_StartConsume(t *testing.T) {
+	kafkaURL := mustKafkaURL(t)
+	topic := randomTopic("same-topic")
+
+	err := admin.CreateKafkaTopics(kafkaURL, admin.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
+	assert.NoError(t, err)
+	defer func() {
+		_ = admin.DeleteKafkaTopics(kafkaURL, topic)
+	}()
+
+	consumerA, err := consumer.NewBaseKKConsumer("it-consumer-a", consumer.KafkaGroupConsumerConfig{
+		BootstrapServers: strings.Split(kafkaURL, ","),
+		Topics:           []string{topic},
+		GroupID:          randomGroup("same-topic-a"),
+		AutoOffsetReset:  "earliest",
+	}, consumer.KafkaConsumerRetryPolicy{
+		MaxFailure:    2,
+		BackoffBase:   5 * time.Millisecond,
+		BackoffMax:    5 * time.Millisecond,
+		BackoffFactor: 1,
+	}, consumer.KafkaConsumerDLTPolicy{})
+	assert.NoError(t, err)
+	defer consumerA.Close()
+
+	consumerB, err := consumer.NewBaseKKConsumer("it-consumer-b", consumer.KafkaGroupConsumerConfig{
+		BootstrapServers: strings.Split(kafkaURL, ","),
+		Topics:           []string{topic},
+		GroupID:          randomGroup("same-topic-b"),
+		AutoOffsetReset:  "earliest",
+	}, consumer.KafkaConsumerRetryPolicy{
+		MaxFailure:    2,
+		BackoffBase:   5 * time.Millisecond,
+		BackoffMax:    5 * time.Millisecond,
+		BackoffFactor: 1,
+	}, consumer.KafkaConsumerDLTPolicy{})
+	assert.NoError(t, err)
+	defer consumerB.Close()
+
+	type consumed struct {
+		consumer string
+		topic    string
+		value    string
+	}
+	results := make(chan consumed, 4)
+
+	err = consumerA.StartConsume(func(ctx context.Context, message *kafka.Message) error {
+		_ = ctx
+		results <- consumed{consumer: "a", topic: *message.TopicPartition.Topic, value: string(message.Value)}
+		return nil
+	}, func() {}, func() {})
+	assert.NoError(t, err)
+
+	err = consumerB.StartConsume(func(ctx context.Context, message *kafka.Message) error {
+		_ = ctx
+		results <- consumed{consumer: "b", topic: *message.TopicPartition.Topic, value: string(message.Value)}
+		return nil
+	}, func() {}, func() {})
+	assert.NoError(t, err)
+
+	writer := producer.GetKafkaWriter()
+	assert.NotNil(t, writer)
+	err = writer.WriteMessages(context.Background(), producer.Message{
+		Topic: topic,
+		Key:   []byte("key-1"),
+		Value: []byte("value-1"),
+	})
+	assert.NoError(t, err)
+
+	received := map[string]consumed{}
+	deadline := time.After(10 * time.Second)
+	for len(received) < 2 {
+		select {
+		case item := <-results:
+			received[item.consumer] = item
+		case <-deadline:
+			t.Fatalf("timed out waiting for both consumers, received=%d", len(received))
+		}
+	}
+
+	assert.Contains(t, received, "a")
+	assert.Contains(t, received, "b")
+	assert.Equal(t, topic, received["a"].topic)
+	assert.Equal(t, topic, received["b"].topic)
+	assert.Equal(t, "value-1", received["a"].value)
+	assert.Equal(t, "value-1", received["b"].value)
+
+	assert.NoError(t, consumerA.Close())
+	assert.NoError(t, consumerB.Close())
+}
+
+func Test_BaseKKConsumer_MultipleConsumers_DifferentTopics_StartConsume(t *testing.T) {
+	kafkaURL := mustKafkaURL(t)
+	topicA := randomTopic("multi-topic-a")
+	topicB := randomTopic("multi-topic-b")
+
+	err := admin.CreateKafkaTopics(kafkaURL,
+		admin.TopicConfig{Topic: topicA, NumPartitions: 1, ReplicationFactor: 1},
+		admin.TopicConfig{Topic: topicB, NumPartitions: 1, ReplicationFactor: 1},
+	)
+	assert.NoError(t, err)
+	defer func() {
+		_ = admin.DeleteKafkaTopics(kafkaURL, topicA, topicB)
+	}()
+
+	consumerA, err := consumer.NewBaseKKConsumer("it-topic-a", consumer.KafkaGroupConsumerConfig{
+		BootstrapServers: strings.Split(kafkaURL, ","),
+		Topics:           []string{topicA},
+		GroupID:          randomGroup("topic-a-group"),
+		AutoOffsetReset:  "earliest",
+	}, consumer.KafkaConsumerRetryPolicy{
+		MaxFailure:    2,
+		BackoffBase:   5 * time.Millisecond,
+		BackoffMax:    5 * time.Millisecond,
+		BackoffFactor: 1,
+	}, consumer.KafkaConsumerDLTPolicy{})
+	assert.NoError(t, err)
+	defer consumerA.Close()
+
+	consumerB, err := consumer.NewBaseKKConsumer("it-topic-b", consumer.KafkaGroupConsumerConfig{
+		BootstrapServers: strings.Split(kafkaURL, ","),
+		Topics:           []string{topicB},
+		GroupID:          randomGroup("topic-b-group"),
+		AutoOffsetReset:  "earliest",
+	}, consumer.KafkaConsumerRetryPolicy{
+		MaxFailure:    2,
+		BackoffBase:   5 * time.Millisecond,
+		BackoffMax:    5 * time.Millisecond,
+		BackoffFactor: 1,
+	}, consumer.KafkaConsumerDLTPolicy{})
+	assert.NoError(t, err)
+	defer consumerB.Close()
+
+	type consumed struct {
+		consumer string
+		topic    string
+		value    string
+	}
+	results := make(chan consumed, 4)
+
+	err = consumerA.StartConsume(func(ctx context.Context, message *kafka.Message) error {
+		_ = ctx
+		results <- consumed{consumer: "a", topic: *message.TopicPartition.Topic, value: string(message.Value)}
+		return nil
+	}, func() {}, func() {})
+	assert.NoError(t, err)
+
+	err = consumerB.StartConsume(func(ctx context.Context, message *kafka.Message) error {
+		_ = ctx
+		results <- consumed{consumer: "b", topic: *message.TopicPartition.Topic, value: string(message.Value)}
+		return nil
+	}, func() {}, func() {})
+	assert.NoError(t, err)
+
+	writer := producer.GetKafkaWriter()
+	assert.NotNil(t, writer)
+	assert.NoError(t, writer.WriteMessages(context.Background(), producer.Message{
+		Topic: topicA,
+		Key:   []byte("key-a"),
+		Value: []byte("value-a"),
+	}))
+	assert.NoError(t, writer.WriteMessages(context.Background(), producer.Message{
+		Topic: topicB,
+		Key:   []byte("key-b"),
+		Value: []byte("value-b"),
+	}))
+
+	received := map[string]consumed{}
+	deadline := time.After(10 * time.Second)
+	for len(received) < 2 {
+		select {
+		case item := <-results:
+			received[item.consumer] = item
+		case <-deadline:
+			t.Fatalf("timed out waiting for topic consumers, received=%d", len(received))
+		}
+	}
+
+	assert.Contains(t, received, "a")
+	assert.Contains(t, received, "b")
+	assert.Equal(t, topicA, received["a"].topic)
+	assert.Equal(t, topicB, received["b"].topic)
+	assert.Equal(t, "value-a", received["a"].value)
+	assert.Equal(t, "value-b", received["b"].value)
+
+	assert.NoError(t, consumerA.Close())
+	assert.NoError(t, consumerB.Close())
 }

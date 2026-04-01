@@ -28,6 +28,22 @@ type BaseKKConsumer struct {
 	IsRunning bool
 }
 
+func NewBaseKKConsumer(name string, cfg KafkaGroupConsumerConfig, retryPolicy KafkaConsumerRetryPolicy, dltPolicy KafkaConsumerDLTPolicy) (*BaseKKConsumer, error) {
+	c, err := NewKafkaGroupConsumer(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &BaseKKConsumer{
+		Name:        name,
+		Reader:      c,
+		Topics:      append([]string(nil), cfg.Topics...),
+		GroupID:     cfg.GroupID,
+		RetryPolicy: retryPolicy,
+		DLTPolicy:   dltPolicy,
+	}, nil
+}
+
 func (b *BaseKKConsumer) StartConsume(
 	handler KafkaMessageHandler,
 	preConsumeHook KafkaPreConsumeHook,
