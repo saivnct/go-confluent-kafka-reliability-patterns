@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/joho/godotenv"
-	"github.com/saivnct/go-confluent-kafka-reliability-patterns/conn"
+	"github.com/saivnct/go-confluent-kafka-reliability-patterns/admin"
 	"github.com/saivnct/go-confluent-kafka-reliability-patterns/producer"
 	"github.com/saivnct/go-confluent-kafka-reliability-patterns/util"
 	"github.com/testcontainers/testcontainers-go"
@@ -57,7 +57,7 @@ func InitTestEnv() {
 
 	kkHealthCheckTopic := util.EnvString("KAFKA_HEALTH_CHECK_TOPIC", "")
 	if kkHealthCheckTopic != "" {
-		if err := conn.CreateKafkaTopics(brokersURL, conn.TopicConfig{
+		if err := admin.CreateKafkaTopics(brokersURL, admin.TopicConfig{
 			Topic:             kkHealthCheckTopic,
 			NumPartitions:     1,
 			ReplicationFactor: 1,

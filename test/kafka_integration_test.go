@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
-	"github.com/saivnct/go-confluent-kafka-reliability-patterns/conn"
+	"github.com/saivnct/go-confluent-kafka-reliability-patterns/admin"
 	"github.com/saivnct/go-confluent-kafka-reliability-patterns/consumer"
 	kkerror "github.com/saivnct/go-confluent-kafka-reliability-patterns/kkErrors"
 	"github.com/saivnct/go-confluent-kafka-reliability-patterns/producer"
@@ -20,7 +20,7 @@ func Test_CreateAndDeleteKafkaTopics(t *testing.T) {
 	kafkaURL := mustKafkaURL(t)
 	topic := randomTopic("admin")
 
-	err := conn.CreateKafkaTopics(kafkaURL, conn.TopicConfig{
+	err := admin.CreateKafkaTopics(kafkaURL, admin.TopicConfig{
 		Topic:             topic,
 		NumPartitions:     1,
 		ReplicationFactor: 1,
@@ -28,18 +28,18 @@ func Test_CreateAndDeleteKafkaTopics(t *testing.T) {
 	assert.NoError(t, err)
 
 	// idempotent create
-	err = conn.CreateKafkaTopics(kafkaURL, conn.TopicConfig{
+	err = admin.CreateKafkaTopics(kafkaURL, admin.TopicConfig{
 		Topic:             topic,
 		NumPartitions:     1,
 		ReplicationFactor: 1,
 	})
 	assert.NoError(t, err)
 
-	err = conn.DeleteKafkaTopics(kafkaURL, topic)
+	err = admin.DeleteKafkaTopics(kafkaURL, topic)
 	assert.NoError(t, err)
 
 	// idempotent delete
-	err = conn.DeleteKafkaTopics(kafkaURL, topic)
+	err = admin.DeleteKafkaTopics(kafkaURL, topic)
 	assert.NoError(t, err)
 }
 
@@ -48,13 +48,13 @@ func Test_ProcessKafkaMessageWithRetry_RetryExhausted_SendsDLT(t *testing.T) {
 	sourceTopic := randomTopic("source")
 	dltTopic := sourceTopic + ".DLT"
 
-	err := conn.CreateKafkaTopics(kafkaURL,
-		conn.TopicConfig{Topic: sourceTopic, NumPartitions: 1, ReplicationFactor: 1},
-		conn.TopicConfig{Topic: dltTopic, NumPartitions: 1, ReplicationFactor: 1},
+	err := admin.CreateKafkaTopics(kafkaURL,
+		admin.TopicConfig{Topic: sourceTopic, NumPartitions: 1, ReplicationFactor: 1},
+		admin.TopicConfig{Topic: dltTopic, NumPartitions: 1, ReplicationFactor: 1},
 	)
 	assert.NoError(t, err)
 	defer func() {
-		_ = conn.DeleteKafkaTopics(kafkaURL, sourceTopic, dltTopic)
+		_ = admin.DeleteKafkaTopics(kafkaURL, sourceTopic, dltTopic)
 	}()
 
 	writer := producer.GetKafkaWriter()
@@ -127,10 +127,10 @@ func Test_BaseKKConsumer_StartConsume_WithHooks(t *testing.T) {
 	kafkaURL := mustKafkaURL(t)
 	topic := randomTopic("base-consumer")
 
-	err := conn.CreateKafkaTopics(kafkaURL, conn.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
+	err := admin.CreateKafkaTopics(kafkaURL, admin.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
 	assert.NoError(t, err)
 	defer func() {
-		_ = conn.DeleteKafkaTopics(kafkaURL, topic)
+		_ = admin.DeleteKafkaTopics(kafkaURL, topic)
 	}()
 
 	baseConsumer, err := consumer.NewBaseKKConsumer("it-consumer", consumer.KafkaGroupConsumerConfig{

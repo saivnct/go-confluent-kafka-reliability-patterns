@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/saivnct/go-confluent-kafka-reliability-patterns/conn"
+	"github.com/saivnct/go-confluent-kafka-reliability-patterns/admin"
 	"github.com/saivnct/go-confluent-kafka-reliability-patterns/consumer"
 	"github.com/saivnct/go-confluent-kafka-reliability-patterns/producer"
 	"github.com/stretchr/testify/assert"
@@ -23,9 +23,9 @@ func Test_KafkaWriter_WriteMessages_BatchSuccess_AddsIdempotencyHeader(t *testin
 	kafkaURL := mustKafkaURL(t)
 	topic := randomTopic("writer-batch")
 
-	err := conn.CreateKafkaTopics(kafkaURL, conn.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
+	err := admin.CreateKafkaTopics(kafkaURL, admin.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
 	assert.NoError(t, err)
-	defer func() { _ = conn.DeleteKafkaTopics(kafkaURL, topic) }()
+	defer func() { _ = admin.DeleteKafkaTopics(kafkaURL, topic) }()
 
 	writer := producer.GetKafkaWriter()
 	assert.NotNil(t, writer)
@@ -68,9 +68,9 @@ func Test_KafkaWriter_WriteMessages_PartialBatch_ReturnsErrorAndDeliversProduced
 	kafkaURL := mustKafkaURL(t)
 	topic := randomTopic("writer-partial")
 
-	err := conn.CreateKafkaTopics(kafkaURL, conn.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
+	err := admin.CreateKafkaTopics(kafkaURL, admin.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
 	assert.NoError(t, err)
-	defer func() { _ = conn.DeleteKafkaTopics(kafkaURL, topic) }()
+	defer func() { _ = admin.DeleteKafkaTopics(kafkaURL, topic) }()
 
 	writer := producer.GetKafkaWriter()
 	assert.NotNil(t, writer)
@@ -102,9 +102,9 @@ func Test_KafkaWriter_WriteMessagesAsync_SucceedsAndReturnsSingleResult(t *testi
 	kafkaURL := mustKafkaURL(t)
 	topic := randomTopic("writer-async")
 
-	err := conn.CreateKafkaTopics(kafkaURL, conn.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
+	err := admin.CreateKafkaTopics(kafkaURL, admin.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
 	assert.NoError(t, err)
-	defer func() { _ = conn.DeleteKafkaTopics(kafkaURL, topic) }()
+	defer func() { _ = admin.DeleteKafkaTopics(kafkaURL, topic) }()
 
 	writer := producer.GetKafkaWriter()
 	assert.NotNil(t, writer)
@@ -147,9 +147,9 @@ func Test_KafkaWriter_WriteMessagesFireAndForget_EventuallyConsumes(t *testing.T
 	kafkaURL := mustKafkaURL(t)
 	topic := randomTopic("writer-ff")
 
-	err := conn.CreateKafkaTopics(kafkaURL, conn.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
+	err := admin.CreateKafkaTopics(kafkaURL, admin.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
 	assert.NoError(t, err)
-	defer func() { _ = conn.DeleteKafkaTopics(kafkaURL, topic) }()
+	defer func() { _ = admin.DeleteKafkaTopics(kafkaURL, topic) }()
 
 	writer := producer.GetKafkaWriter()
 	assert.NotNil(t, writer)
@@ -179,9 +179,9 @@ func Test_KafkaWriter_WriteMessagesFireAndForget_CanceledContext_DoesNotPublish(
 	topic := randomTopic("writer-ff-canceled")
 	log.Println("topic:", topic)
 
-	err := conn.CreateKafkaTopics(kafkaURL, conn.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
+	err := admin.CreateKafkaTopics(kafkaURL, admin.TopicConfig{Topic: topic, NumPartitions: 1, ReplicationFactor: 1})
 	assert.NoError(t, err)
-	defer func() { _ = conn.DeleteKafkaTopics(kafkaURL, topic) }()
+	defer func() { _ = admin.DeleteKafkaTopics(kafkaURL, topic) }()
 
 	writer := producer.GetKafkaWriter()
 	assert.NotNil(t, writer)

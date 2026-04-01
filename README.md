@@ -21,7 +21,7 @@ Most Kafka clients solve connectivity, not operating model.
 
 ## Features
 
-### Topic Administration (`conn`)
+### Topic Administration (`admin`)
 - `CreateKafkaTopics(...)`
 - `DeleteKafkaTopics(...)`
 - Handles common idempotent cases:
