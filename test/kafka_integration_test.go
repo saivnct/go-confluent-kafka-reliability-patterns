@@ -183,7 +183,7 @@ func Test_BaseKKConsumer_StartConsume_WithHooks(t *testing.T) {
 	assert.NoError(t, err)
 
 	select {
-	case <-baseConsumer.ConsumeDone():
+	case <-baseConsumer.GetConsumeDoneChan():
 	case <-time.After(10 * time.Second):
 		t.Fatal("timed out waiting for consumer shutdown signal")
 	}

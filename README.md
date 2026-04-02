@@ -9,6 +9,8 @@ A production-oriented Go wrapper around Confluent Kafka (`confluent-kafka-go`) f
 
 Built for teams that want to move fast without re-implementing Kafka reliability patterns in every service.
 
+Latest release: `v0.0.5`.
+
 ## Why This Library
 
 Most Kafka clients solve connectivity, not operating model.
@@ -144,7 +146,7 @@ func main() {
 
 ### 3) React to Consumer Stop Signals
 
-Use `ConsumeDone()` to wait for consume-loop termination and `ConsumeErr()` to decide what action to take.
+Use `GetConsumeDoneChan()` to wait for consume-loop termination and `ConsumeErr()` to decide what action to take.
 If `StartConsume(...)` is called while the consumer is already running, it is a no-op and does not start another consume loop.
 
 ```go
@@ -159,7 +161,7 @@ if err != nil {
 }
 
 go func() {
-  <-base.ConsumeDone()
+  <-base.GetConsumeDoneChan()
 
   if errors.Is(base.ConsumeErr(), context.Canceled) {
     // Expected when shutdown is requested via Close().

@@ -18,3 +18,9 @@ func SplitComma(s string) []string {
 	var regComma = regexp.MustCompile(`\s*,\s*`)
 	return regComma.Split(strings.TrimSpace(s), -1)
 }
+
+func GetClosedSignalChannel() chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
