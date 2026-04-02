@@ -64,8 +64,6 @@ func (b *BaseKKConsumer) consumeMsg(
 		retryPolicy := kkConsumer.RetryPolicy.normalize()
 		dltPolicy := kkConsumer.DLTPolicy
 
-		log.Println("Start Kafka Consuming", "BaseKKConsumer:", b.Name, "topics:", kkConsumer.Topics, "groupID:", kkConsumer.GroupID)
-
 		pollTimeoutMs := int(retryPolicy.PollTimeout.Milliseconds())
 		if pollTimeoutMs <= 0 {
 			pollTimeoutMs = 200
