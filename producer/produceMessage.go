@@ -167,10 +167,11 @@ func cloneMessageBatch(msgs []Message) []Message {
 	cloned := make([]Message, len(msgs))
 	for i, msg := range msgs {
 		cloned[i] = Message{
-			Topic:     msg.Topic,
-			Time:      msg.Time,
-			Partition: msg.Partition,
-			Headers:   cloneHeaders(msg.Headers),
+			Topic:                 msg.Topic,
+			Time:                  msg.Time,
+			UseDedicatedPartition: msg.UseDedicatedPartition,
+			Partition:             msg.Partition,
+			Headers:               cloneHeaders(msg.Headers),
 		}
 		if len(msg.Key) > 0 {
 			cloned[i].Key = append([]byte(nil), msg.Key...)

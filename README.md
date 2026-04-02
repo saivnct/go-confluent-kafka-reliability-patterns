@@ -9,7 +9,14 @@ A production-oriented Go wrapper around Confluent Kafka (`confluent-kafka-go`) f
 
 Built for teams that want to move fast without re-implementing Kafka reliability patterns in every service.
 
-Latest release: `v0.0.5`.
+Latest release: `v0.0.6`.
+
+## What's New In v0.0.6
+
+- Producer: added explicit dedicated-partition routing via `Message.UseDedicatedPartition` + `Message.Partition`
+- Producer: `WriteMessagesAsync` now clones message batches to avoid shared-slice mutation issues
+- Consumer: added `BaseKKConsumer.IsLogEnable` to allow turning internal consumer logs on/off
+- Producer: improved enqueue backpressure handling when local queue is full
 
 ## Why This Library
 
@@ -37,6 +44,9 @@ Most Kafka clients solve connectivity, not operating model.
   - `enable.idempotence=true`
   - `acks=all`
 - Auto `x-idempotency-key` header (if missing)
+- Optional dedicated partition routing:
+  - set `Message.UseDedicatedPartition=true`
+  - set `Message.Partition=<partition-number>`
 - Multiple write modes:
   - `WriteMessages` (sync with delivery reports)
   - `WriteMessagesAsync`
@@ -45,6 +55,7 @@ Most Kafka clients solve connectivity, not operating model.
 ### Consumer Wrapper (`consumer`)
 - `NewKafkaGroupConsumer(config)` for group consumer setup
 - `BaseKKConsumer` polling loop with lifecycle hooks
+- Optional internal log toggle via `BaseKKConsumer.IsLogEnable`
 - Retry engine with configurable backoff policy
 - Retry/non-retryable error semantics via `kkErrors`
 - Optional DLT publishing on terminal or exhausted failures

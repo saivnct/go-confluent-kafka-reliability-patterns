@@ -18,6 +18,7 @@ type BaseKKConsumer struct {
 	GroupID     string
 	RetryPolicy KafkaConsumerRetryPolicy
 	DLTPolicy   KafkaConsumerDLTPolicy
+	IsLogEnable bool
 
 	mu        sync.Mutex
 	runCancel context.CancelFunc

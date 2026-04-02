@@ -69,6 +69,8 @@ func (b *BaseKKConsumer) consumeMsg(
 			pollTimeoutMs = 200
 		}
 
+		isLogEnable := b.IsLogEnable
+
 		for {
 			if err := ctx.Err(); err != nil {
 				runErr = err
@@ -88,7 +90,9 @@ func (b *BaseKKConsumer) consumeMsg(
 						return
 					}
 
-					log.Println("Failed to process Kafka message", "BaseKKConsumer:", b.Name, "topic:", topicFromKafkaMessage(e), "partition:", e.TopicPartition.Partition, "offset:", e.TopicPartition.Offset, "error:", err)
+					if isLogEnable {
+						log.Println("Failed to process Kafka message", "BaseKKConsumer:", b.Name, "topic:", topicFromKafkaMessage(e), "partition:", e.TopicPartition.Partition, "offset:", e.TopicPartition.Offset, "error:", err)
+					}
 
 					if err := sleepWithContext(ctx, retryPolicy.SleepOnFetchErr); err != nil {
 						runErr = err
@@ -101,23 +105,33 @@ func (b *BaseKKConsumer) consumeMsg(
 					return
 				}
 
-				log.Println("Kafka consumer error", "BaseKKConsumer:", b.Name, "error:", e)
+				if isLogEnable {
+					log.Println("Kafka consumer error", "BaseKKConsumer:", b.Name, "error:", e)
+				}
 
 				if err := sleepWithContext(ctx, retryPolicy.SleepOnFetchErr); err != nil {
 					runErr = err
 					return
 				}
 			case kafka.AssignedPartitions:
-				log.Println("Kafka partitions assigned", "BaseKKConsumer:", b.Name, "partitions:", e.Partitions)
+				if isLogEnable {
+					log.Println("Kafka partitions assigned", "BaseKKConsumer:", b.Name, "partitions:", e.Partitions)
+				}
 
 				if err := kkConsumer.Reader.Assign(e.Partitions); err != nil {
-					log.Println("Failed to assign partitions", "BaseKKConsumer:", b.Name, "error:", err)
+					if isLogEnable {
+						log.Println("Failed to assign partitions", "BaseKKConsumer:", b.Name, "error:", err)
+					}
 				}
 			case kafka.RevokedPartitions:
-				log.Println("Kafka partitions revoked", "BaseKKConsumer:", b.Name, "partitions:", e.Partitions)
+				if isLogEnable {
+					log.Println("Kafka partitions revoked", "BaseKKConsumer:", b.Name, "partitions:", e.Partitions)
+				}
 
 				if err := kkConsumer.Reader.Unassign(); err != nil {
-					log.Println("Failed to unassign partitions", "BaseKKConsumer:", b.Name, "error:", err)
+					if isLogEnable {
+						log.Println("Failed to unassign partitions", "BaseKKConsumer:", b.Name, "error:", err)
+					}
 				}
 			}
 		}

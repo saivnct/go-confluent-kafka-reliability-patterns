@@ -14,18 +14,19 @@ const (
 // Message is a producer-friendly abstraction used by this wrapper.
 // It intentionally mirrors the common fields used by kafka-go message builders.
 type Message struct {
-	Topic     string
-	Key       []byte
-	Value     []byte
-	Headers   []kafka.Header
-	Time      time.Time
-	Partition int32
+	Topic                 string
+	Key                   []byte
+	Value                 []byte
+	Headers               []kafka.Header
+	Time                  time.Time
+	UseDedicatedPartition bool
+	Partition             int32
 }
 
 func (m Message) toKafkaMessage(idempotencyHeaderKey string) *kafka.Message {
 	topic := m.Topic
 	partition := kafka.PartitionAny
-	if m.Partition >= 0 {
+	if m.Partition >= 0 && m.UseDedicatedPartition {
 		partition = m.Partition
 	}
 
