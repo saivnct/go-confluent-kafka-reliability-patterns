@@ -2,7 +2,9 @@ package consumer
 
 import (
 	"context"
+	"log"
 	"sync"
+	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/saivnct/go-confluent-kafka-reliability-patterns/util"
@@ -105,6 +107,17 @@ func (b *BaseKKConsumer) Close() error {
 
 	if runCancel != nil {
 		runCancel()
+
+		//background goroutine may still hanging on b.Reader.Poll() waiting for a message.
+		//Because Poll() is a CGO execution binding directly to a C library (librdkafka), destroying the reader object in step 2 while it's still being evaluated inside a C thread in step 3 triggers a hard SIGSEGV crash.
+		//The proper way to handle graceful termination of a CGO Kafka consumer is: Cancel Context -> Wait for loop to exit Poll() cleanly -> Destroy Reader.
+		log.Println("Waiting for consume loop to stop after context cancellation")
+		if doneCh := b.GetConsumeDoneChan(); doneCh != nil {
+			select {
+			case <-doneCh:
+			case <-time.After(30 * time.Second):
+			}
+		}
 	}
 
 	if b.Reader != nil {

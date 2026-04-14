@@ -9,14 +9,13 @@ A production-oriented Go wrapper around Confluent Kafka (`confluent-kafka-go`) f
 
 Built for teams that want to move fast without re-implementing Kafka reliability patterns in every service.
 
-Latest release: `v0.0.6`.
+Latest release: `v0.0.7`.
 
-## What's New In v0.0.6
+## What's New In v0.0.7
 
-- Producer: added explicit dedicated-partition routing via `Message.UseDedicatedPartition` + `Message.Partition`
-- Producer: `WriteMessagesAsync` now clones message batches to avoid shared-slice mutation issues
-- Consumer: added `BaseKKConsumer.IsLogEnable` to allow turning internal consumer logs on/off
-- Producer: improved enqueue backpressure handling when local queue is full
+- Consumer: improved graceful shutdown to wait for the consume loop to exit after context cancellation
+- Consumer: reduced risk of CGO-level crashes by avoiding reader destruction while `Poll()` may still be active
+- Consumer: added bounded shutdown wait (up to 30s) before closing the reader
 
 ## Why This Library
 
