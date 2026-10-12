@@ -9,7 +9,14 @@ A production-oriented Go wrapper around Confluent Kafka (`confluent-kafka-go`) f
 
 Built for teams that want to move fast without re-implementing Kafka reliability patterns in every service.
 
-Latest release: `v0.0.7`.
+Latest release: `v0.0.8`.
+
+## What's New In v0.0.8
+
+- Consumer: rebalance hooks `BaseKKConsumer.RebalanceHooks` (`OnAssigned`, `OnRevoked` with a `lost` flag)
+- Consumer: `consumer.PolledAt(ctx)` gives the handler the time the message was polled; retries keep the first poll time (`consumer.WithPolledAt` sets it in tests)
+- Consumer: cooperative rebalance support (`partition.assignment.strategy=cooperative-sticky`) with incremental assign/unassign
+- Consumer: removed the unreachable `AssignedPartitions` / `RevokedPartitions` cases from the poll loop (in `Poll` mode the Kafka client never returns these events; rebalances now go through a rebalance callback)
 
 ## What's New In v0.0.7
 
@@ -58,6 +65,9 @@ Most Kafka clients solve connectivity, not operating model.
 - Retry engine with configurable backoff policy
 - Retry/non-retryable error semantics via `kkErrors`
 - Optional DLT publishing on terminal or exhausted failures
+- Optional rebalance hooks via `BaseKKConsumer.RebalanceHooks`
+- `consumer.PolledAt(ctx)`: time the message being handled was polled
+- Works with the eager (default) and cooperative (`cooperative-sticky`) rebalance protocols
 
 ## Installation
 
@@ -187,6 +197,44 @@ if err := base.Close(); err != nil {
   panic(err)
 }
 ```
+
+### 4) Rebalance Hooks and Poll Time
+
+Set `RebalanceHooks` before `StartConsume`. The hooks run on the goroutine that calls `Poll`
+(the consume loop, or `Close`, which revokes the partitions while it leaves the group).
+`OnAssigned` runs after the assign, `OnRevoked` before the revoke. With the cooperative
+protocol they receive only the partitions that change.
+
+```go
+base.RebalanceHooks = consumer.KafkaRebalanceHooks{
+  OnAssigned: func(partitions []kafka.TopicPartition) {
+    // start using these partitions
+  },
+  OnRevoked: func(partitions []kafka.TopicPartition, lost bool) {
+    // stop using these partitions; lost = true means another consumer may already own them
+  },
+}
+
+err = base.StartConsume(func(ctx context.Context, msg *kafka.Message) error {
+  if polledAt, ok := consumer.PolledAt(ctx); ok && time.Since(polledAt) > 10*time.Second {
+    // this message has been retried for a long time without polling Kafka:
+    // the group may have given its partition to another consumer
+  }
+  return nil
+}, nil, nil)
+```
+
+To use the cooperative protocol, set it in `AdditionalConfig`:
+
+```go
+consumer.KafkaGroupConsumerConfig{
+  // ...
+  AdditionalConfig: map[string]interface{}{"partition.assignment.strategy": "cooperative-sticky"},
+}
+```
+
+The Kafka client does not allow eager and cooperative strategies in one group at the same
+time, so switching a running group needs all its consumers stopped and started again.
 
 ## Configuration
 

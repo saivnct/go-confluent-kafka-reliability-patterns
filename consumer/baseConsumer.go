@@ -22,6 +22,11 @@ type BaseKKConsumer struct {
 	DLTPolicy   KafkaConsumerDLTPolicy
 	IsLogEnable bool
 
+	// RebalanceHooks are called when partitions are assigned to or revoked from this consumer.
+	// Set them before StartConsume. They run on the goroutine that calls Poll: the consume loop,
+	// or Close, which revokes the partitions while it leaves the group.
+	RebalanceHooks KafkaRebalanceHooks
+
 	mu        sync.Mutex
 	runCancel context.CancelFunc
 	doneCh    chan struct{}
@@ -30,20 +35,22 @@ type BaseKKConsumer struct {
 }
 
 func NewBaseKKConsumer(name string, cfg KafkaGroupConsumerConfig, retryPolicy KafkaConsumerRetryPolicy, dltPolicy KafkaConsumerDLTPolicy) (*BaseKKConsumer, error) {
-	c, err := NewKafkaGroupConsumer(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &BaseKKConsumer{
+	b := &BaseKKConsumer{
 		Name:        name,
-		Reader:      c,
 		Topics:      append([]string(nil), cfg.Topics...),
 		GroupID:     cfg.GroupID,
 		RetryPolicy: retryPolicy,
 		DLTPolicy:   dltPolicy,
 		doneCh:      util.GetClosedSignalChannel(),
-	}, nil
+	}
+
+	c, err := newKafkaGroupConsumer(cfg, b.onRebalance)
+	if err != nil {
+		return nil, err
+	}
+	b.Reader = c
+
+	return b, nil
 }
 
 // GetConsumeDoneChan returns a run-scoped channel that closes when the current consume loop stops.

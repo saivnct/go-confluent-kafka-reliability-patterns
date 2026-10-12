@@ -1,0 +1,4 @@
+go clean -testcache && go test -v ./test
+go clean -testcache && go test -v ./consumer
+
+go clean -testcache && go test -v ./test -run "^Test_BaseKKConsumer_RebalanceHooks_CooperativeSticky"

@@ -45,7 +45,15 @@ func (c KafkaGroupConsumerConfig) normalize() KafkaGroupConsumerConfig {
 	return c
 }
 
+// NewKafkaGroupConsumer creates a consumer subscribed to cfg.Topics.
+// Partitions are assigned and revoked by the Kafka client inside Poll.
 func NewKafkaGroupConsumer(cfg KafkaGroupConsumerConfig) (*kafka.Consumer, error) {
+	return newKafkaGroupConsumer(cfg, nil)
+}
+
+// newKafkaGroupConsumer creates a consumer subscribed to cfg.Topics.
+// rebalanceCb, when not nil, is called from Poll when partitions are assigned or revoked.
+func newKafkaGroupConsumer(cfg KafkaGroupConsumerConfig, rebalanceCb kafka.RebalanceCb) (*kafka.Consumer, error) {
 	cfg = cfg.normalize()
 	if len(cfg.BootstrapServers) == 0 {
 		return nil, fmt.Errorf("bootstrap servers are required")
@@ -84,7 +92,7 @@ func NewKafkaGroupConsumer(cfg KafkaGroupConsumerConfig) (*kafka.Consumer, error
 		return nil, err
 	}
 
-	if err := c.SubscribeTopics(cfg.Topics, nil); err != nil {
+	if err := c.SubscribeTopics(cfg.Topics, rebalanceCb); err != nil {
 		c.Close()
 		return nil, err
 	}

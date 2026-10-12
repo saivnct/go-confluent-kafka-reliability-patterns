@@ -84,7 +84,9 @@ func (b *BaseKKConsumer) consumeMsg(
 
 			switch e := event.(type) {
 			case *kafka.Message:
-				if err := ProcessKafkaMessageWithRetryAndOptions(ctx, kkConsumer.Reader, e, consumerHandler, retryPolicy, dltPolicy); err != nil {
+				// retries of this message keep the same poll time, see PolledAt
+				msgCtx := WithPolledAt(ctx, time.Now())
+				if err := ProcessKafkaMessageWithRetryAndOptions(msgCtx, kkConsumer.Reader, e, consumerHandler, retryPolicy, dltPolicy); err != nil {
 					if isTerminalConsumerErr(ctx, err) {
 						runErr = err
 						return
@@ -112,26 +114,6 @@ func (b *BaseKKConsumer) consumeMsg(
 				if err := sleepWithContext(ctx, retryPolicy.SleepOnFetchErr); err != nil {
 					runErr = err
 					return
-				}
-			case kafka.AssignedPartitions:
-				if isLogEnable {
-					log.Println("Kafka partitions assigned", "BaseKKConsumer:", b.Name, "partitions:", e.Partitions)
-				}
-
-				if err := kkConsumer.Reader.Assign(e.Partitions); err != nil {
-					if isLogEnable {
-						log.Println("Failed to assign partitions", "BaseKKConsumer:", b.Name, "error:", err)
-					}
-				}
-			case kafka.RevokedPartitions:
-				if isLogEnable {
-					log.Println("Kafka partitions revoked", "BaseKKConsumer:", b.Name, "partitions:", e.Partitions)
-				}
-
-				if err := kkConsumer.Reader.Unassign(); err != nil {
-					if isLogEnable {
-						log.Println("Failed to unassign partitions", "BaseKKConsumer:", b.Name, "error:", err)
-					}
 				}
 			}
 		}

@@ -37,10 +37,10 @@ func pollMessage(c *kafka.Consumer, timeout time.Duration) (*kafka.Message, erro
 		case *kafka.Message:
 			return e, nil
 		case kafka.Error:
-			if e.Code() == kafka.ErrTimedOut {
-				continue
+			// a new topic can be reported as unknown for a short time: only a fatal error stops the wait
+			if e.IsFatal() {
+				return nil, e
 			}
-			return nil, e
 		}
 	}
 	return nil, context.DeadlineExceeded
