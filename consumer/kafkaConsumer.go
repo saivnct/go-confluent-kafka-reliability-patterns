@@ -92,6 +92,24 @@ func (b *BaseKKConsumer) consumeMsg(
 						return
 					}
 
+					// the message could not be handled nor written to the dead-letter topic: stop without
+					// committing, so a restart reads it again instead of skipping it
+					if errors.Is(err, kkErrors.KKDLTWriteFailedErr) {
+						if isLogEnable {
+							log.Println("Stop consuming: dead-letter write failed", "BaseKKConsumer:", b.Name, "topic:", topicFromKafkaMessage(e), "partition:", e.TopicPartition.Partition, "offset:", e.TopicPartition.Offset, "error:", err)
+						}
+						runErr = err
+						return
+					}
+
+					// the message was handled; a later commit covers its offset
+					if errors.Is(err, kkErrors.KKCommitFailedErr) {
+						if isLogEnable {
+							log.Println("Kafka offset commit failed, continue", "BaseKKConsumer:", b.Name, "topic:", topicFromKafkaMessage(e), "partition:", e.TopicPartition.Partition, "offset:", e.TopicPartition.Offset, "error:", err)
+						}
+						continue
+					}
+
 					if isLogEnable {
 						log.Println("Failed to process Kafka message", "BaseKKConsumer:", b.Name, "topic:", topicFromKafkaMessage(e), "partition:", e.TopicPartition.Partition, "offset:", e.TopicPartition.Offset, "error:", err)
 					}

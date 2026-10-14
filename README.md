@@ -9,7 +9,12 @@ A production-oriented Go wrapper around Confluent Kafka (`confluent-kafka-go`) f
 
 Built for teams that want to move fast without re-implementing Kafka reliability patterns in every service.
 
-Latest release: `v0.0.8`.
+Latest release: `v0.0.9`.
+
+## What's New In v0.0.9
+
+- Consumer: a message is never skipped when its dead-letter write fails. The write is retried up to `KafkaConsumerDLTPolicy.MaxWriteAttempts` times (default 10) with the retry policy backoff; the handler is not run again. When every try fails, the message is not committed and the consume loop stops with `kkErrors.KKDLTWriteFailedErr` (before, the loop polled the next message, whose commit also covered the failed one)
+- Consumer: an offset commit failure after a handled message wraps `kkErrors.KKCommitFailedErr`; the consume loop logs it and continues at once (a later commit covers the message)
 
 ## What's New In v0.0.8
 
@@ -144,9 +149,10 @@ func main() {
     defer base.Close()
 
     base.DLTPolicy = consumer.KafkaConsumerDLTPolicy{
-        Enabled: true,
-        Topic:   "orders.DLT", // optional; defaults to <sourceTopic>.DLT
-        Writer:  producer.GetKafkaWriter(),
+        Enabled:          true,
+        Topic:            "orders.DLT", // optional; defaults to <sourceTopic>.DLT
+        Writer:           producer.GetKafkaWriter(),
+        MaxWriteAttempts: 10,           // optional; defaults to 10
     }
 
     _ = base.StartConsume(func(ctx context.Context, msg *kafka.Message) error {
@@ -188,7 +194,9 @@ go func() {
     return
   }
 
-  // Trigger alert/restart flow for unexpected termination.
+  // Trigger alert/restart flow for unexpected termination, for example
+  // kkErrors.KKDLTWriteFailedErr: a message could not be written to the DLT and was not committed,
+  // so a restart reads it again.
   panic(base.ConsumeErr())
 }()
 
@@ -265,12 +273,19 @@ time, so switching a running group needs all its consumers stopped and started a
 - `BackoffMax: 10s`
 - `BackoffFactor: 2`
 
+`consumer.KafkaConsumerDLTPolicy`:
+- `MaxWriteAttempts: 10` (`consumer.DefaultDLTMaxWriteAttempts`) when not set
+
 ## Error Semantics
 
 Use `kkErrors` to control retry behavior in handlers:
 - `kkErrors.Retryable(err)` -> eligible for retry
 - `kkErrors.NotRetryable(err)` -> terminal failure
 - unwrapped/plain errors are treated as terminal
+
+Errors returned by `ProcessKafkaMessageWithRetryAndOptions` (check them with `errors.Is`):
+- `kkErrors.KKDLTWriteFailedErr`: the dead-letter write failed on every attempt; the message is not committed and the consume loop stops (`ConsumeErr()`)
+- `kkErrors.KKCommitFailedErr`: the message was handled (or written to the DLT) but the commit failed; the consume loop continues, a later commit covers the offset, and a restart before that only replays the message
 
 ## DLT Metadata Headers
 

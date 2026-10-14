@@ -26,6 +26,10 @@ func ProcessKafkaMessageWithRetry(
 	return ProcessKafkaMessageWithRetryAndOptions(ctx, committer, message, handler, policy, KafkaConsumerDLTPolicy{})
 }
 
+// ProcessKafkaMessageWithRetryAndOptions runs handler against a message with retries, writes it to the
+// dead-letter topic when the handler gives up (if enabled), and commits the offset after it.
+// When the dead-letter write fails on every attempt, the message is not committed and the error wraps
+// kkErrors.KKDLTWriteFailedErr. When only the commit fails, the error wraps kkErrors.KKCommitFailedErr.
 func ProcessKafkaMessageWithRetryAndOptions(
 	ctx context.Context,
 	committer KafkaMessageCommitter,
@@ -50,25 +54,22 @@ func ProcessKafkaMessageWithRetryAndOptions(
 
 		err := handler(ctx, message)
 		if err == nil {
-			_, commitErr := committer.CommitMessage(message)
-			return commitErr
+			return commitMessage(committer, message)
 		}
 
 		terminal := kkerror.IsNotRetryable(err) || !kkerror.IsRetryable(err)
 		if terminal {
-			if err := publishToDLTIfEnabled(ctx, dltPolicy, message, failures+1, err); err != nil {
+			if err := publishToDLTIfEnabled(ctx, dltPolicy, retryPolicy, message, failures+1, err); err != nil {
 				return err
 			}
-			_, commitErr := committer.CommitMessage(message)
-			return commitErr
+			return commitMessage(committer, message)
 		}
 
 		if retryPolicy.MaxFailure >= 0 && failures+1 >= retryPolicy.MaxFailure {
-			if err := publishToDLTIfEnabled(ctx, dltPolicy, message, failures+1, err); err != nil {
+			if err := publishToDLTIfEnabled(ctx, dltPolicy, retryPolicy, message, failures+1, err); err != nil {
 				return err
 			}
-			_, commitErr := committer.CommitMessage(message)
-			return commitErr
+			return commitMessage(committer, message)
 		}
 
 		backoff := retryPolicy.backoffForAttempt(failures + 1)
@@ -77,6 +78,15 @@ func ProcessKafkaMessageWithRetryAndOptions(
 			return err
 		}
 	}
+}
+
+// commitMessage commits the offset after the message and wraps a failure with kkErrors.KKCommitFailedErr.
+func commitMessage(committer KafkaMessageCommitter, message *kafka.Message) error {
+	if _, err := committer.CommitMessage(message); err != nil {
+		return fmt.Errorf("%w (partition %d, offset %d): %w", kkerror.KKCommitFailedErr,
+			message.TopicPartition.Partition, message.TopicPartition.Offset, err)
+	}
+	return nil
 }
 
 func connMessageHeadersFromKafka(headers []kafka.Header) []kafka.Header {
